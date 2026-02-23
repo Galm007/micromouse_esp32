@@ -1,0 +1,11 @@
+CompileFlags:
+  Remove:
+    - -fno-shrink-wrap
+    - -fstrict-volatile-bitfields
+    - -fno-tree-switch-conversion
+    - -mlongcalls
+  Add:
+    [
+      "--query-driver=**/.platformio/packages/toolchain-xtensa-esp32*/bin/xtensa-esp32*-elf-*",
+    ]
+  CompilationDatabse: "."

@@ -38,6 +38,9 @@
 *.out
 *.app
 
+# Cache folder
+.cache
+
 # debug information files
 *.dwo
 =======
