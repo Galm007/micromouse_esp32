@@ -1,43 +1,58 @@
 #include <iostream>
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "driver/pulse_cnt.h"
+#include "BNO08x.hpp"
 
 const gpio_num_t HBridgeEnablePin = GPIO_NUM_2;
-const gpio_num_t HBridgePin1 = GPIO_NUM_16; // Right Wheel Backward
-const gpio_num_t HBridgePin2 = GPIO_NUM_17; // Right Weel Forward
-const gpio_num_t HBridgePin3 = GPIO_NUM_5;  // Left Wheel Backward
-const gpio_num_t HBridgePin4 = GPIO_NUM_18; // Left Wheel Forward
+const gpio_num_t HBridgePin1 = GPIO_NUM_26; // Right Wheel Forward
+const gpio_num_t HBridgePin2 = GPIO_NUM_25; // Right Wheel Backward
+const gpio_num_t HBridgePin3 = GPIO_NUM_33; // Left Wheel Backward
+const gpio_num_t HBridgePin4 = GPIO_NUM_32; // Left Wheel Forward
 
-const gpio_num_t RightIRWritePin = GPIO_NUM_26;
-const gpio_num_t LeftIRWritePin = GPIO_NUM_27;
-const gpio_num_t BottomRightIRWritePin = GPIO_NUM_33;
-const gpio_num_t BottomLeftIRWritePin = GPIO_NUM_25;
+const gpio_num_t EncoderPin1 = GPIO_NUM_35;
+const gpio_num_t EncoderPin2 = GPIO_NUM_34;
+const gpio_num_t EncoderPin3 = GPIO_NUM_39;
+const gpio_num_t EncoderPin4 = GPIO_NUM_36;
 
-const gpio_num_t RightIRReadPin = GPIO_NUM_34; // ADC 6
-const gpio_num_t LeftIRReadPin = GPIO_NUM_35; // ADC 7
-const gpio_num_t BottomRightIRReadPin = GPIO_NUM_32; // ADC 4
-const gpio_num_t BottomLeftIRReadPin = GPIO_NUM_39; // ADC 1
+pcnt_unit_handle_t pcnt_unit = NULL;
+BNO08x gyro;
 
-extern "C" {
-	void app_main(void);
+void init_encoder() {
+	pcnt_unit_config_t unit_config = {
+		.low_limit = -10000,
+		.high_limit = 10000,
+	};
+	pcnt_new_unit(&unit_config, &pcnt_unit);
+
+	pcnt_chan_config_t chan_config = {
+		.edge_gpio_num = EncoderPin1,
+		.level_gpio_num = EncoderPin2,
+	};
+	pcnt_channel_handle_t pcnt_chan = NULL;
+	pcnt_new_channel(pcnt_unit, &chan_config, &pcnt_chan);
+
+	pcnt_channel_set_edge_action(pcnt_chan, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE);
+	pcnt_channel_set_level_action(pcnt_chan, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+
+	pcnt_unit_enable(pcnt_unit);
+	pcnt_unit_clear_count(pcnt_unit);
+	pcnt_unit_start(pcnt_unit);
 }
 
-void app_main(void) {
+extern "C" void app_main(void) {
 	// Reset pins to their default state, not required but highly recommended
-	gpio_reset_pin(HBridgeEnablePin);
-	gpio_reset_pin(HBridgePin1);
-	gpio_reset_pin(HBridgePin2);
-	gpio_reset_pin(HBridgePin3);
-	gpio_reset_pin(HBridgePin4);
-	gpio_reset_pin(RightIRWritePin);
-	gpio_reset_pin(LeftIRWritePin);
-	gpio_reset_pin(BottomRightIRWritePin);
-	gpio_reset_pin(BottomLeftIRWritePin);
-	gpio_reset_pin(RightIRReadPin);
-	gpio_reset_pin(LeftIRReadPin);
-	gpio_reset_pin(BottomRightIRReadPin);
-	gpio_reset_pin(BottomLeftIRReadPin);
+	// gpio_reset_pin(HBridgeEnablePin);
+	// gpio_reset_pin(HBridgePin1);
+	// gpio_reset_pin(HBridgePin2);
+	// gpio_reset_pin(HBridgePin3);
+	// gpio_reset_pin(HBridgePin4);
+	// gpio_reset_pin(EncoderPin1);
+	// gpio_reset_pin(EncoderPin2);
+	// gpio_reset_pin(EncoderPin3);
+	// gpio_reset_pin(EncoderPin4);
 
 	// Set pin direction, same as Arduino's pinMode() function
 	gpio_set_direction(HBridgeEnablePin, GPIO_MODE_OUTPUT);
@@ -45,42 +60,40 @@ void app_main(void) {
 	gpio_set_direction(HBridgePin2, GPIO_MODE_OUTPUT);
 	gpio_set_direction(HBridgePin3, GPIO_MODE_OUTPUT);
 	gpio_set_direction(HBridgePin4, GPIO_MODE_OUTPUT);
-	gpio_set_direction(RightIRWritePin, GPIO_MODE_OUTPUT);
-	gpio_set_direction(RightIRReadPin, GPIO_MODE_INPUT);
-	gpio_set_direction(LeftIRWritePin, GPIO_MODE_OUTPUT);
-	gpio_set_direction(LeftIRReadPin, GPIO_MODE_INPUT);
-	gpio_set_direction(BottomRightIRWritePin, GPIO_MODE_OUTPUT);
-	gpio_set_direction(BottomRightIRReadPin, GPIO_MODE_INPUT);
-	gpio_set_direction(BottomLeftIRWritePin, GPIO_MODE_OUTPUT);
-	gpio_set_direction(BottomLeftIRReadPin, GPIO_MODE_INPUT);
+	gpio_set_direction(EncoderPin1, GPIO_MODE_INPUT);
+	gpio_set_direction(EncoderPin2, GPIO_MODE_INPUT);
+	gpio_set_direction(EncoderPin3, GPIO_MODE_INPUT);
+	gpio_set_direction(EncoderPin4, GPIO_MODE_INPUT);
+
+	// Set up peripherals
+	init_encoder();
+	if (!gyro.initialize()) {
+		ESP_LOGE("GYRO", "Init failure!");
+		return;
+	}
+	gyro.rpt.rv_game.enable(100000UL);
 
 	// Set pin level, same as Arduino's digitalWrite() function
 	gpio_set_level(HBridgeEnablePin, 1);
-	gpio_set_level(HBridgePin1, 0);
-	gpio_set_level(HBridgePin2, 1);
+	gpio_set_level(HBridgePin1, 1);
+	gpio_set_level(HBridgePin2, 0);
 	gpio_set_level(HBridgePin3, 0);
-	gpio_set_level(HBridgePin4, 0);
-	gpio_set_level(RightIRWritePin, 1);
-	gpio_set_level(LeftIRWritePin, 1);
-	gpio_set_level(BottomRightIRWritePin, 1);
-	gpio_set_level(BottomLeftIRWritePin, 1);
+	gpio_set_level(HBridgePin4, 1);
 
 	// Infinite loop
 	while (1) {
-		// Read pin levels, same as Arduino's digitalRead() function
-		int obstacle_right = gpio_get_level(RightIRReadPin);
-		int obstacle_left = gpio_get_level(LeftIRReadPin);
-		int obstacle_bottom_right = gpio_get_level(BottomRightIRReadPin);
-		int obstacle_bottom_left = gpio_get_level(BottomLeftIRReadPin);
+		// Read encoder
+		// int pulse_count = 0;
+		// pcnt_unit_get_count(pcnt_unit, &pulse_count);
+		// std::cout << pulse_count << std::endl;
 
-		// Print values using C++ library's iostream
-		std::cout << "Left: " << (obstacle_left == 0 ? "HIT" : "CLEAR")
-			<< ", Right: " << (obstacle_right == 0 ? "HIT" : "CLEAR")
-			<< ", Bottom Left: " << (obstacle_bottom_left == 0 ? "HIT" : "CLEAR")
-			<< ", Bottom Right: " << (obstacle_bottom_right == 0 ? "HIT" : "CLEAR")
-        		<< std::endl;
+		// Read gyro
+		if (gyro.data_available()) {
+			bno08x_euler_angle_t euler = gyro.rpt.rv_game.get_euler();
+			ESP_LOGI("GYRO", "X roll: %.2f, Y pitch: %.2f, Z yaw: %.2f", euler.x, euler.y, euler.z);
+		}
 
 		// Same as arduino's delay() function
-		vTaskDelay(pdMS_TO_TICKS(500));
+		vTaskDelay(pdMS_TO_TICKS(100));
 	}
 }
