@@ -6,8 +6,8 @@ How to run:
 2) Connect ESP32 to your computer via USB.
 
 ```
-# clone the project
-git clone https://github.com/Galm007/micromouse_esp32 && cd micromouse_esp32
+# clone the project recursively, which includes libraries added as git submodules
+git clone --recursive https://github.com/Galm007/micromouse_esp32 && cd micromouse_esp32
 
 # Build, upload to ESP32, then monitor outputs
 pio run -t upload && pio device monitor
