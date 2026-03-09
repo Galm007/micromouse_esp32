@@ -20,5 +20,5 @@ public:
 	HBridge();
 	~HBridge();
 
-	void SetMotorDir(MotorDir left, MotorDir right);
+	void set_motor_dir(MotorDir left, MotorDir right);
 };

@@ -1,22 +1,16 @@
 #include <iostream>
-#include "HBridge.hpp"
+#include "hbridge.hpp"
+#include "encoder.hpp"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
-#include "driver/pulse_cnt.h"
 
 #include "BNO08x.hpp" // Gyroscope Library
 
 extern "C" {
 #include "vl53l0x.h"  // IR Sensor Library
 }
-
-// Motor Encoders
-const gpio_num_t EncoderPin1 = GPIO_NUM_35;
-const gpio_num_t EncoderPin2 = GPIO_NUM_34;
-const gpio_num_t EncoderPin3 = GPIO_NUM_39;
-const gpio_num_t EncoderPin4 = GPIO_NUM_36;
 
 // IR Sensors
 const gpio_num_t I2C_Pin = GPIO_NUM_0;
@@ -27,46 +21,9 @@ const gpio_num_t XShutPin2 = GPIO_NUM_13; // Left Forward Sensor
 const gpio_num_t XShutPin3 = GPIO_NUM_27;
 const gpio_num_t XShutPin4 = GPIO_NUM_4;
 
-pcnt_unit_handle_t pcnt_unit = NULL;
 BNO08x gyro;
 vl53l0x_t* sensor_right;
 vl53l0x_t* sensor_left;
-
-// Encoders use magnets that rapidly go high and low.
-// These pulses are counted and converted later to radians.
-void init_encoder() {
-	// Initialize pulse counter unit
-	pcnt_unit_config_t unit_config = {
-		.low_limit = -10000,
-		.high_limit = 10000,
-	};
-	pcnt_new_unit(&unit_config, &pcnt_unit);
-
-	// Initialize pulse counter channel
-	pcnt_chan_config_t chan_config = {
-		.edge_gpio_num = EncoderPin1,
-		.level_gpio_num = EncoderPin2,
-	};
-	pcnt_channel_handle_t pcnt_chan = NULL;
-	pcnt_new_channel(pcnt_unit, &chan_config, &pcnt_chan);
-
-	// Describe what a pulse looks like
-	pcnt_channel_set_edge_action(
-		pcnt_chan,
-		PCNT_CHANNEL_EDGE_ACTION_INCREASE,
-		PCNT_CHANNEL_EDGE_ACTION_DECREASE
-	);
-	pcnt_channel_set_level_action(
-		pcnt_chan,
-		PCNT_CHANNEL_LEVEL_ACTION_KEEP,
-		PCNT_CHANNEL_LEVEL_ACTION_INVERSE
-	);
-
-	// Start pulse counter
-	pcnt_unit_enable(pcnt_unit);
-	pcnt_unit_clear_count(pcnt_unit);
-	pcnt_unit_start(pcnt_unit);
-}
 
 #define WAIT_A_BIT() vTaskDelay(pdMS_TO_TICKS(30))
 void init_ir_sensors() {
@@ -120,18 +77,16 @@ void init_ir_sensors() {
 }
 
 extern "C" void app_main() {
+	// Initialize components
 	HBridge hbridge = HBridge();
+	Encoder encoder_right = Encoder(GPIO_NUM_34, GPIO_NUM_35);
+	Encoder encoder_left = Encoder(GPIO_NUM_39, GPIO_NUM_36);
 
 	// Set pin direction, same as Arduino's pinMode() function
-	gpio_set_direction(EncoderPin1, GPIO_MODE_INPUT);
-	gpio_set_direction(EncoderPin2, GPIO_MODE_INPUT);
-	gpio_set_direction(EncoderPin3, GPIO_MODE_INPUT);
-	gpio_set_direction(EncoderPin4, GPIO_MODE_INPUT);
 	gpio_set_direction(XShutPin1, GPIO_MODE_OUTPUT);
 	gpio_set_direction(XShutPin2, GPIO_MODE_OUTPUT);
 
 	// Set up peripherals
-	init_encoder();
 	if (!gyro.initialize()) {
 		ESP_LOGE("GYRO", "Init failure!");
 		return;
@@ -146,9 +101,7 @@ extern "C" void app_main() {
 		std::cout << "------------------------------------------------------------------" << std::endl;
 
 		// Read encoder
-		int pulse_count = 0;
-		pcnt_unit_get_count(pcnt_unit, &pulse_count);
-		ESP_LOGI("pulse_cnt", "%d", pulse_count);
+		ESP_LOGI("Encoder", "Left: %f, Right: %f", encoder_left.get_radians(), encoder_right.get_radians());
 
 		// Read gyro
 		if (gyro.data_available()) {

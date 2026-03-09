@@ -1,7 +1,7 @@
-#include "HBridge.hpp"
+#include "hbridge.hpp"
 
 HBridge::HBridge() {
-	ESP_LOGE("H-Bridge", "Initializing H-Bridge...");
+	ESP_LOGI("H-Bridge", "Initializing H-Bridge...");
 
 	// Set pin directions
 	gpio_set_direction(HBridgePin1, GPIO_MODE_OUTPUT);
@@ -15,12 +15,12 @@ HBridge::HBridge() {
 	gpio_set_level(HBridgePin3, 0);
 	gpio_set_level(HBridgePin4, 0);
 
-	ESP_LOGE("H-Bridge", "Initialized H-Bridge!");
+	ESP_LOGI("H-Bridge", "Initialized H-Bridge!");
 }
 
 HBridge::~HBridge() { }
 
-void HBridge::SetMotorDir(MotorDir left, MotorDir right) {
+void HBridge::set_motor_dir(MotorDir left, MotorDir right) {
 	if (right == FORWARD) {
 		gpio_set_level(HBridgePin1, 1);
 		gpio_set_level(HBridgePin2, 0);
