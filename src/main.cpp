@@ -1,4 +1,5 @@
 #include <iostream>
+#include "HBridge.hpp"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -10,12 +11,6 @@
 extern "C" {
 #include "vl53l0x.h"  // IR Sensor Library
 }
-
-// H-Bridge
-const gpio_num_t HBridgePin1 = GPIO_NUM_26; // Right Wheel Forward
-const gpio_num_t HBridgePin2 = GPIO_NUM_25; // Right Wheel Backward
-const gpio_num_t HBridgePin3 = GPIO_NUM_33; // Left Wheel Backward
-const gpio_num_t HBridgePin4 = GPIO_NUM_32; // Left Wheel Forward
 
 // Motor Encoders
 const gpio_num_t EncoderPin1 = GPIO_NUM_35;
@@ -125,11 +120,9 @@ void init_ir_sensors() {
 }
 
 extern "C" void app_main() {
+	HBridge hbridge = HBridge();
+
 	// Set pin direction, same as Arduino's pinMode() function
-	gpio_set_direction(HBridgePin1, GPIO_MODE_OUTPUT);
-	gpio_set_direction(HBridgePin2, GPIO_MODE_OUTPUT);
-	gpio_set_direction(HBridgePin3, GPIO_MODE_OUTPUT);
-	gpio_set_direction(HBridgePin4, GPIO_MODE_OUTPUT);
 	gpio_set_direction(EncoderPin1, GPIO_MODE_INPUT);
 	gpio_set_direction(EncoderPin2, GPIO_MODE_INPUT);
 	gpio_set_direction(EncoderPin3, GPIO_MODE_INPUT);
@@ -147,12 +140,6 @@ extern "C" void app_main() {
 
 	init_ir_sensors();
 	ESP_LOGI("vl53l0x", "Initialized IR Sensors!");
-
-	// Set pin level, same as Arduino's digitalWrite() function
-	gpio_set_level(HBridgePin1, 1);
-	gpio_set_level(HBridgePin2, 0);
-	gpio_set_level(HBridgePin3, 0);
-	gpio_set_level(HBridgePin4, 1);
 
 	// Infinite loop
 	while (1) {
